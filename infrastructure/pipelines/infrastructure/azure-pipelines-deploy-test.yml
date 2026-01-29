@@ -1,0 +1,92 @@
+# Azure DevOps Pipeline: Deploy Infrastructure to Test
+# Triggers on main; deploys to Test without manual approval (Prod has approval gate)
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - terraform/*
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: 'infrastructure-test'
+  - name: terraformVersion
+    value: '1.5.0'
+  - name: environment
+    value: 'test'
+
+stages:
+  - stage: Validate
+    displayName: 'Validate Terraform'
+    jobs:
+      - job: Validate
+        steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform init -backend-config=backend.tf
+              terraform validate
+              terraform fmt -check
+            displayName: 'Terraform Validate'
+
+  - stage: Plan
+    displayName: 'Terraform Plan'
+    dependsOn: Validate
+    jobs:
+      - job: Plan
+        steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform init -backend-config=backend.tf
+              terraform plan \
+                -var="infrastructure_version=$(Build.SourceVersion)" \
+                -var="git_commit_sha=$(Build.SourceVersion)" \
+                -var="git_tag=$(Build.SourceBranchName)" \
+                -out=tfplan
+            displayName: 'Terraform Plan'
+          
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'terraform/environments/$(environment)/tfplan'
+              artifactName: 'terraform-plan-$(environment)'
+
+  - stage: Apply
+    displayName: 'Deploy to Test'
+    dependsOn: Plan
+    condition: succeeded()
+    jobs:
+      - job: Apply
+        steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
+          
+          - download: current
+            artifact: 'terraform-plan-$(environment)'
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform init -backend-config=backend.tf
+              terraform apply -auto-approve tfplan
+            displayName: 'Terraform Apply'
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform output -json > outputs.json
+            displayName: 'Capture Outputs'
+          
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'terraform/environments/$(environment)/outputs.json'
+              artifactName: 'terraform-outputs-$(environment)'

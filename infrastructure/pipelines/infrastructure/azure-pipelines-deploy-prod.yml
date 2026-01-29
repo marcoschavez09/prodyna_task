@@ -1,0 +1,115 @@
+# Azure DevOps Pipeline: Deploy Infrastructure to Production
+# Includes manual approval gates
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - terraform/*
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: 'infrastructure-prod'
+  - name: terraformVersion
+    value: '1.5.0'
+  - name: environment
+    value: 'prod'
+
+stages:
+  - stage: Validate
+    displayName: 'Validate Terraform'
+    jobs:
+      - job: Validate
+        steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform init -backend-config=backend.tf
+              terraform validate
+              terraform fmt -check
+            displayName: 'Terraform Validate'
+
+  - stage: Plan
+    displayName: 'Terraform Plan'
+    dependsOn: Validate
+    jobs:
+      - job: Plan
+        steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform init -backend-config=backend.tf
+              terraform plan \
+                -var="infrastructure_version=$(Build.SourceVersion)" \
+                -var="git_commit_sha=$(Build.SourceVersion)" \
+                -var="git_tag=$(Build.SourceBranchName)" \
+                -out=tfplan
+            displayName: 'Terraform Plan'
+          
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'terraform/environments/$(environment)/tfplan'
+              artifactName: 'terraform-plan-$(environment)'
+
+  - stage: Approval
+    displayName: 'Production Approval Gate'
+    dependsOn: Plan
+    condition: succeeded()
+    jobs:
+      - job: WaitForApproval
+        displayName: 'Wait for Manual Approval'
+        pool: server
+        steps:
+          - task: ManualValidation@0
+            inputs:
+              notifyUsers: 'service-manager@company.com'
+              instructions: 'Please review the Terraform plan and approve production deployment'
+              onTimeout: 'reject'
+
+  - stage: Apply
+    displayName: 'Deploy to Production'
+    dependsOn: Approval
+    condition: succeeded()
+    jobs:
+      - job: Apply
+        steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
+          
+          - download: current
+            artifact: 'terraform-plan-$(environment)'
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform init -backend-config=backend.tf
+              terraform apply -auto-approve tfplan
+            displayName: 'Terraform Apply'
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform output -json > outputs.json
+            displayName: 'Capture Outputs'
+          
+          - script: |
+              # Tag the git commit with infrastructure version
+              git config user.email "pipeline@company.com"
+              git config user.name "Azure Pipeline"
+              git tag -a "infra-$(Build.SourceVersion)" -m "Infrastructure deployed to prod: $(Build.SourceVersion)"
+              git push origin "infra-$(Build.SourceVersion)"
+            displayName: 'Tag Infrastructure Version'
+          
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'terraform/environments/$(environment)/outputs.json'
+              artifactName: 'terraform-outputs-$(environment)'

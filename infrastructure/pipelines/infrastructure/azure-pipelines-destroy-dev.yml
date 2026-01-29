@@ -1,0 +1,61 @@
+# Azure DevOps Pipeline: DESTROY Infrastructure - Development
+#
+# MANUAL RUN ONLY. No automatic trigger.
+# Use to tear down the development environment (e.g. cost savings, full reset).
+#
+# WARNING: This runs 'terraform destroy' and removes all resources in the dev environment.
+
+trigger: none  # Manual trigger only - never run on branch/push
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: 'infrastructure-dev'
+  - name: terraformVersion
+    value: '1.5.0'
+  - name: environment
+    value: 'dev'
+
+stages:
+  - stage: PlanDestroy
+    displayName: 'Plan Destroy (Preview)'
+    jobs:
+      - job: Plan
+        steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform init -backend-config=backend.tf
+              terraform plan -destroy \
+                -out=tfdestroy \
+                -var-file=terraform.tfvars
+            displayName: 'Terraform Plan -destroy'
+          
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'terraform/environments/$(environment)/tfdestroy'
+              artifactName: 'terraform-destroy-plan-$(environment)'
+
+  - stage: Destroy
+    displayName: 'Destroy Dev Environment'
+    dependsOn: PlanDestroy
+    condition: succeeded()
+    jobs:
+      - job: Destroy
+        steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
+          
+          - download: current
+            artifact: 'terraform-destroy-plan-$(environment)'
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform init -backend-config=backend.tf
+              terraform apply -auto-approve tfdestroy
+            displayName: 'Terraform Apply (Destroy)'

@@ -1,0 +1,10 @@
+# Backend Configuration for Production Environment
+
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "rg-terraform-state-prod"
+    storage_account_name = "stterraformstateprod"
+    container_name       = "tfstate"
+    key                  = "prod.terraform.tfstate"
+  }
+}

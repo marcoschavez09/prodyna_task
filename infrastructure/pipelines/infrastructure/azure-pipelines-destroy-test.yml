@@ -1,0 +1,76 @@
+# Azure DevOps Pipeline: DESTROY Infrastructure - Test
+#
+# MANUAL RUN ONLY. No automatic trigger.
+# Use to tear down the test/staging environment.
+#
+# WARNING: This runs 'terraform destroy' and removes all resources in the test environment.
+
+trigger: none  # Manual trigger only
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: 'infrastructure-test'
+  - name: terraformVersion
+    value: '1.5.0'
+  - name: environment
+    value: 'test'
+
+stages:
+  - stage: PlanDestroy
+    displayName: 'Plan Destroy (Preview)'
+    jobs:
+      - job: Plan
+        steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform init -backend-config=backend.tf
+              terraform plan -destroy \
+                -out=tfdestroy \
+                -var-file=terraform.tfvars
+            displayName: 'Terraform Plan -destroy'
+          
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: 'terraform/environments/$(environment)/tfdestroy'
+              artifactName: 'terraform-destroy-plan-$(environment)'
+
+  - stage: Approval
+    displayName: 'Approve Test Environment Destroy'
+    dependsOn: PlanDestroy
+    condition: succeeded()
+    jobs:
+      - job: WaitForApproval
+        displayName: 'Confirm Destroy'
+        pool: server
+        steps:
+          - task: ManualValidation@0
+            inputs:
+              notifyUsers: ''
+              instructions: 'You are about to DESTROY the Test environment. All resources will be deleted. Confirm only if intended.'
+              onTimeout: 'reject'
+
+  - stage: Destroy
+    displayName: 'Destroy Test Environment'
+    dependsOn: Approval
+    condition: succeeded()
+    jobs:
+      - job: Destroy
+        steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
+          
+          - download: current
+            artifact: 'terraform-destroy-plan-$(environment)'
+          
+          - script: |
+              cd terraform/environments/$(environment)
+              terraform init -backend-config=backend.tf
+              terraform apply -auto-approve tfdestroy
+            displayName: 'Terraform Apply (Destroy)'
