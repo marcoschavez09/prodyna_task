@@ -1,5 +1,4 @@
 # Azure DevOps Pipeline: Deploy Infrastructure to Dev
-# GitHub Actions equivalent would be similar structure
 
 trigger:
   branches:
