@@ -1,4 +1,5 @@
-# prodyna_task
+# Prodyna task for the DevOps Engineer Position.
+
 Example infrastructure project. 
 
 ```
@@ -74,3 +75,14 @@ infrastructure/
     ├── deployment-guide.md
     └── troubleshooting.md
 ```
+# Presentation Diagrams.
+
+## Project Checklist
+
+- 📄 [Container based Architechture (PDF)](./infrastructure/docs/Container_based_Arch.pdf)
+
+- 📄 [PaaS Architechture (PDF)](./infrastructure/docs/Paas_Arch.pdf)
+
+- 📄 [Branching Strategy (PDF)](./infrastructure/docs/branching_team.pdf)
+
+- 📄 [Presentation (PDF)](./infrastructure/docs/PRODYNA_aufgabestellung_devops.pdf)
