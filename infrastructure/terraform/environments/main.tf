@@ -25,7 +25,7 @@ provider "azurerm" {
 module "resource_group" {
   source = "../../shared"
   
-  environment = "dev"
+  environment = var.env
   project_name = var.project_name
   location = var.location
 }
@@ -34,7 +34,7 @@ module "resource_group" {
 module "key_vault" {
   source = "../../modules/key-vault"
   
-  environment = "dev"
+  environment = var.env
   project_name = var.project_name
   location = var.location
   resource_group_name = module.resource_group.name
@@ -46,7 +46,7 @@ module "key_vault" {
 module "cosmos_db" {
   source = "../../modules/cosmos-db"
   
-  environment = "dev"
+  environment = var.env
   project_name = var.project_name
   location = var.location
   resource_group_name = module.resource_group.name
@@ -61,7 +61,7 @@ module "cosmos_db" {
 module "app_service" {
   source = "../../modules/app-service"
   
-  environment = "dev"
+  environment = var.env
   project_name = var.project_name
   location = var.location
   resource_group_name = module.resource_group.name
@@ -80,7 +80,7 @@ module "app_service" {
 module "static_web_app" {
   source = "../../modules/static-web-app"
   
-  environment = "dev"
+  environment = var.env
   project_name = var.project_name
   location = var.location
   resource_group_name = module.resource_group.name
@@ -94,7 +94,7 @@ module "static_web_app" {
 module "monitoring" {
   source = "../../modules/monitoring"
   
-  environment = "dev"
+  environment = var.env
   project_name = var.project_name
   resource_group_name = module.resource_group.name
   
@@ -107,7 +107,7 @@ module "monitoring" {
 # Local values
 locals {
   common_tags = {
-    Environment     = "dev"
+    Environment     = var.env
     Project         = var.project_name
     Version         = var.infrastructure_version
     GitCommit       = var.git_commit_sha

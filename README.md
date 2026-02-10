@@ -11,24 +11,11 @@ infrastructure/
 │   └── azure-pipelines-template-backend.yml
 ├── terraform/
 │   ├── environments/
-│   │   ├── dev/
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   ├── terraform.tfvars
-│   │   │   ├── backend.tf
-│   │   │   └── outputs.tf
-│   │   ├── test/
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   ├── terraform.tfvars
-│   │   │   ├── backend.tf
-│   │   │   └── outputs.tf
-│   │   └── prod/
-│   │       ├── main.tf
-│   │       ├── variables.tf
-│   │       ├── terraform.tfvars
-│   │       ├── backend.tf
-│   │       └── outputs.tf
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── terraform.tfvars
+│   │   ├── backend.tf
+│   │   └── outputs.tf
 │   ├── modules/
 │   │   ├── static-web-app/
 │   │   │   ├── main.tf

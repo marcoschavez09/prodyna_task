@@ -14,6 +14,12 @@ variable "project_name" {
   default     = "spa-app"
 }
 
+variable "env" {
+  description = "Project environment"
+  type        = string
+  default     = "dev"
+}
+
 variable "location" {
   description = "Azure region for resources"
   type        = string
